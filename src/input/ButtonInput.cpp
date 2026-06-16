@@ -63,3 +63,7 @@ bool ButtonInput::consumeLongPress() {
     longPressPending = false;
     return out;
 }
+
+bool ButtonInput::isPressed() const {
+    return pressed;
+}

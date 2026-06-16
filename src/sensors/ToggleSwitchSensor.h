@@ -38,4 +38,8 @@ class ToggleSwitchSensor : public IMidiSensor, public IConfigurableSensor {
 
     byte currentValue;
     bool pending;
+    bool pressInProgress;
+    unsigned long pressStartMs;
+
+    static const unsigned long MinValidPressMs = 60;
 };

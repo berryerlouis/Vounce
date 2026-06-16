@@ -30,16 +30,28 @@ EncoderSensor::EncoderSensor(
       value(constrain(initialValue, minValue, maxValue)),
       lastSentValue(-1),
       lastStateCLK(HIGH),
-      pending(true) {}
+    pending(true),
+    lockPin(0),
+    lockEnabled(false) {}
 
 void EncoderSensor::begin() {
     pinMode(pinCLK, INPUT_PULLUP);
     pinMode(pinDT, INPUT_PULLUP);
+    if (lockEnabled) {
+        pinMode(lockPin, INPUT_PULLUP);
+    }
     lastStateCLK = digitalRead(pinCLK);
 }
 
 void EncoderSensor::update() {
     int stateCLK = digitalRead(pinCLK);
+
+    // Ignore encoder movement while the configured lock pin is held LOW.
+    if (lockEnabled && digitalRead(lockPin) == LOW) {
+        lastStateCLK = stateCLK;
+        return;
+    }
+
     int stateDT = digitalRead(pinDT);
 
     if (stateCLK != lastStateCLK && stateCLK == HIGH) {
@@ -158,4 +170,9 @@ void EncoderSensor::setRange(byte newMinValue, byte newMaxValue) {
     minValue = newMinValue;
     maxValue = newMaxValue;
     value = constrain(value, minValue, maxValue);
+}
+
+void EncoderSensor::setLockWhilePinLow(uint8_t pin) {
+    lockPin = pin;
+    lockEnabled = true;
 }

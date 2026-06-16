@@ -10,6 +10,7 @@ class ButtonInput {
 
     bool consumeShortPress();
     bool consumeLongPress();
+    bool isPressed() const;
 
   private:
     uint8_t pin;

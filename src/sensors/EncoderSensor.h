@@ -28,6 +28,7 @@ class EncoderSensor : public IMidiSensor, public IConfigurableSensor {
 
     void setSensitivity(byte newSensitivity);
     void setRange(byte minValue, byte maxValue);
+    void setLockWhilePinLow(uint8_t pin);
 
   private:
     uint8_t pinCLK;
@@ -44,4 +45,6 @@ class EncoderSensor : public IMidiSensor, public IConfigurableSensor {
 
     int lastStateCLK;
     bool pending;
+    uint8_t lockPin;
+    bool lockEnabled;
 };

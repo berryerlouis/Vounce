@@ -28,7 +28,9 @@ ToggleSwitchSensor::ToggleSwitchSensor(
       stableState(HIGH),
       lastDebounceTime(0),
       currentValue(valueOff),
-      pending(true) {}
+    pending(true),
+    pressInProgress(false),
+    pressStartMs(0) {}
 
 void ToggleSwitchSensor::begin() {
     pinMode(pin, INPUT_PULLUP);
@@ -38,18 +40,26 @@ void ToggleSwitchSensor::begin() {
 
 void ToggleSwitchSensor::update() {
     int reading = digitalRead(pin);
+    unsigned long now = millis();
 
     if (reading != lastReading) {
-        lastDebounceTime = millis();
+        lastDebounceTime = now;
     }
 
-    if ((millis() - lastDebounceTime) > debounceMs) {
+    if ((now - lastDebounceTime) > debounceMs) {
         if (reading != stableState) {
             stableState = reading;
 
             if (stableState == LOW) {
-                currentValue = (currentValue == valueOn) ? valueOff : valueOn;
-                pending = true;
+                // Start a candidate press; toggle only on a valid release.
+                pressInProgress = true;
+                pressStartMs = now;
+            } else if (pressInProgress) {
+                if ((now - pressStartMs) >= MinValidPressMs) {
+                    currentValue = (currentValue == valueOn) ? valueOff : valueOn;
+                    pending = true;
+                }
+                pressInProgress = false;
             }
         }
     }

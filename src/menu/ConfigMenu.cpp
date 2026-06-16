@@ -1,9 +1,18 @@
 #include "ConfigMenu.h"
 
-ConfigMenu::ConfigMenu(ButtonInput& button, RotaryInput& rotary, Stream& output)
+ConfigMenu::ConfigMenu(
+    ButtonInput& button,
+    RotaryInput& rotary,
+    Logger& logger,
+    SensorConfigEeprom* configStore,
+    MidiOut* midiOut,
+    byte midiChannel)
     : button(button),
       rotary(rotary),
-      output(output),
+      logger(logger),
+      configStore(configStore),
+      midiOut(midiOut),
+      midiChannel(midiChannel),
       sensors{nullptr},
       sensorCount(0),
       mode(Closed),
@@ -48,6 +57,10 @@ bool ConfigMenu::isOpen() const {
     return mode != Closed;
 }
 
+bool ConfigMenu::isEditing() const {
+    return mode == EditParam;
+}
+
 void ConfigMenu::open() {
     if (sensorCount == 0) {
         return;
@@ -61,7 +74,7 @@ void ConfigMenu::open() {
 
 void ConfigMenu::close() {
     mode = Closed;
-    output.println(F("[MENU] closed"));
+    logger.info("Menu closed");
 }
 
 void ConfigMenu::handleShortPress() {
@@ -156,46 +169,72 @@ void ConfigMenu::handleEncoderDelta(int delta) {
         int current = sensor->getParameterValue(selectedParam);
         int next = current + (delta * meta.step);
         next = constrain(next, meta.minValue, meta.maxValue);
+        if (next == current) {
+            return;
+        }
+
         sensor->setParameterValue(selectedParam, next);
+        if (configStore != nullptr) {
+            configStore->saveParameter(selectedSensor, selectedParam);
+        }
         printState();
+    }
+}
+
+void ConfigMenu::sendMenuMidi(byte value) {
+    if (midiOut != nullptr) {
+        midiOut->sendCC(midiChannel, 120, value);
     }
 }
 
 void ConfigMenu::printState() {
     if (mode == Closed || sensorCount == 0) {
+        sendMenuMidi(0);
+        return;
+    }
+
+    if (mode == SelectSensor) {
+        sendMenuMidi(selectedSensor + 1);
+        for (uint8_t i = 0; i < sensorCount; ++i) {
+            IConfigurableSensor* sensor = sensors[i];
+            String msg = String("Sensor: ") + sensor->getSensorName() + 
+                        " (" + String((int)i + 1) + "/" + String((int)sensorCount) + ")";
+            if(i == selectedSensor) {
+                msg += " [selected]";
+            }
+            logger.info(msg);
+        }
         return;
     }
 
     IConfigurableSensor* sensor = sensors[selectedSensor];
+    if (mode == SelectParam) {
+        sendMenuMidi(selectedParam + 100);
+        for (uint8_t i = 0; i < sensor->getParameterCount(); ++i) {
+            SensorParameterMeta meta;
+            if (!sensor->getParameterMeta(i, meta)) {
+                continue;
+            }
+            int value = sensor->getParameterValue(i);
+            String msg = String(sensor->getSensorName()) + "." + String(meta.name) + 
+                        " = " + String(value);
+            if(i == selectedParam) {
+                msg += " [selected]";
+            }
+            logger.info(msg);
+        }
+    } else if (mode == EditParam){
+        SensorParameterMeta meta;
+        if (!sensor->getParameterMeta(selectedParam, meta)) {
+            return;
+        }
 
-    if (mode == SelectSensor) {
-        output.print(F("[MENU] sensor: "));
-        output.print(sensor->getSensorName());
-        output.print(F(" ("));
-        output.print((int)selectedSensor + 1);
-        output.print(F("/"));
-        output.print((int)sensorCount);
-        output.println(F(")"));
-        return;
-    }
+        int value = sensor->getParameterValue(selectedParam);
+        sendMenuMidi(constrain(value, 0, 127));
 
-    SensorParameterMeta meta;
-    if (!sensor->getParameterMeta(selectedParam, meta)) {
-        return;
-    }
-
-    int value = sensor->getParameterValue(selectedParam);
-
-    output.print(F("[MENU] "));
-    output.print(sensor->getSensorName());
-    output.print(F("."));
-    output.print(meta.name);
-    output.print(F(" = "));
-    output.print(value);
-
-    if (mode == EditParam) {
-        output.println(F(" [edit]"));
-    } else {
-        output.println(F(" [select]"));
+        String modeStr = "[edit]";
+        String msg = String(sensor->getSensorName()) + "." + String(meta.name) + 
+                    " = " + String(value) + " " + modeStr;
+        logger.info(msg);
     }
 }

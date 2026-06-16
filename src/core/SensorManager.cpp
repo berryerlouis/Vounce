@@ -29,12 +29,20 @@ void SensorManager::updateAndSend(MidiOut& midiOut) {
     }
 
     MidiMessage message;
+    bool sentFromSensorThisTick = false;
 
     for (uint8_t i = 0; i < sensorCount; i++) {
         sensors[i]->update();
 
         while (sensors[i]->readMessage(message)) {
             midiOut.sendCC(message);
+            sentFromSensorThisTick = true;
+        }
+
+        // Emit messages from one sensor per loop tick to avoid mixed bursts
+        // when multiple sensors change at nearly the same time.
+        if (sentFromSensorThisTick) {
+            break;
         }
     }
 }
