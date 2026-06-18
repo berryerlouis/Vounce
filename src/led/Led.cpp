@@ -4,8 +4,9 @@ Led::Led(uint8_t pin)
     : pin(pin),
       mode(Off),
       brightness(255),
-      blinkPeriod(500),
+      blinkInterval(500),
       lastBlinkTime(0),
+      blinkEndPeriod(0),
       blinkState(false) {}
 
 void Led::begin() {
@@ -19,16 +20,21 @@ void Led::update() {
     } else if (mode == On) {
         applyBrightness();
     } else if (mode == Blink) {
-        unsigned long now = millis();
-        if (now - lastBlinkTime >= blinkPeriod / 2) {
-            blinkState = !blinkState;
-            lastBlinkTime = now;
-        }
-
-        if (blinkState) {
-            applyBrightness();
-        } else {
+        if (millis() >= blinkEndPeriod) {
             digitalWrite(pin, LOW);
+            mode = Off;
+        } else {
+            unsigned long now = millis();
+            if (now - lastBlinkTime >= blinkInterval / 2) {
+                blinkState = !blinkState;
+                lastBlinkTime = now;
+            }
+
+            if (blinkState) {
+                applyBrightness();
+            } else {
+                digitalWrite(pin, LOW);
+            }
         }
     }
 }
@@ -45,13 +51,27 @@ void Led::setMode(Mode newMode) {
     }
 }
 
+void Led::blink(unsigned long period) {
+    unsigned long now = millis();
+    mode = Blink;
+    blinkInterval = 100;
+    if (period > 0 && period < blinkInterval) {
+        blinkInterval = period;
+    }
+
+    // Restart the pulse every time and turn ON immediately for clear feedback.
+    blinkState = true;
+    lastBlinkTime = now;
+    blinkEndPeriod = now + period;
+    applyBrightness();
+}
+
+
 void Led::setBrightness(uint8_t value) {
     brightness = value;
 }
 
-void Led::setBlinkPeriod(unsigned long period) {
-    blinkPeriod = period;
-}
+
 
 bool Led::isOn() const {
     return mode != Off;

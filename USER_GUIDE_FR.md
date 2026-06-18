@@ -4,124 +4,130 @@ Ce guide est destiné aux musiciens et makers qui souhaitent utiliser Vounce com
 
 ## Ce que fait ce contrôleur
 
-Vounce convertit les commandes physiques en messages MIDI Control Change (CC) :
+Vounce convertit les commandes physiques activées en messages MIDI Control Change (CC). Selon les familles de capteurs activées dans `src/conf/conf.h`, la build peut inclure :
 - Encodeur rotatif
 - Bouton poussoir / commutateur
-- Capteurs optionnels (potentiomètre, ultrasonique)
+- Potentiomètre
+- Capteur de distance ultrasonique
 
-Vous pouvez modifier le comportement des capteurs directement sur l'appareil via le menu intégré, sans reprogrammer le firmware.
+Vous pouvez modifier les paramètres des capteurs supportés à l'exécution via le port série, sans reprogrammer le firmware.
 
 ## Avant de commencer
 
 Vous avez besoin de :
 - Votre carte programmée avec le firmware Vounce
 - Un câble USB branché à votre ordinateur
-- Un DAW ou un moniteur MIDI
+- Un moniteur série pour la configuration
+- Un DAW ou un moniteur MIDI pour tester la sortie MIDI
 
 Notes de connexion :
 - Sur une build Pro Micro USB, Vounce peut apparaître comme un périphérique USB MIDI natif.
-- Sur une build sans USB MIDI, il faut une passerelle série-vers-MIDI côté hôte.
+- Sur une build sans USB MIDI, lisez la note sur la sortie série ci-dessous avant de prévoir une passerelle série-vers-MIDI.
 
-## Signification des LEDs
+Avant de programmer la carte, choisissez :
+- Le profil de carte dans `src/conf/pinout.h`
+- Les familles de capteurs actives dans `src/conf/conf.h`
 
-Les 2 LEDs indiquent le mode de fonctionnement :
+## LED de statut
 
-- LED Menu (`PIN_LED_MENU`)
-  - Éteinte : menu fermé
-  - Allumée : menu ouvert
-  - Clignotante : paramètre en édition
+Le firmware actuel utilise une seule LED de statut sur `PIN_LED_STATUS`.
 
-- LED Inactif (`PIN_LED_IDLE`)
-  - Allumée : menu fermé (mode de lecture normal)
-  - Éteinte : menu ouvert
+- Brièvement ALLUMÉE pendant le démarrage
+- ÉTEINTE pendant le fonctionnement normal
+- Clignote pendant environ 1 seconde après la sauvegarde d'un paramètre en EEPROM
 
-Référence implémentation : [src/led/LedIndicator.cpp](src/led/LedIndicator.cpp)
+Il n'y a plus de LED idle séparée ni d'état LED menu permanent.
 
 ## Fonctionnement de base
 
 ### Mode de lecture normal
 
-Quand le menu est fermé :
-- Les changements des capteurs sont envoyés en MIDI CC
-- LED Inactif est ALLUMÉE
+Pendant le fonctionnement normal :
+- Les capteurs activés sont mis à jour en continu
+- Les changements en attente sont envoyés en MIDI CC
+- La LED de statut reste éteinte, sauf juste après une sauvegarde
 
 Flux d'exécution principal : [vounce.ino](vounce.ino)
 
-### Ouvrir et utiliser le menu
+### Configurer via le port série
 
 Contrôles :
-- Appui long : ouvrir le menu, revenir en arrière, ou fermer le menu
-- Appui court : confirmer / entrer / quitter le mode édition
-- Tourner l'encodeur : naviguer dans les éléments ou modifier la valeur
+- `ls` : lister les capteurs
+- `s <index>` : sélectionner un capteur par index (base 1)
+- `p <index>` : sélectionner un paramètre par index (base 1)
+- `v` : afficher la valeur courante du paramètre et sa plage autorisée
+- `v <valeur>` : définir directement la valeur du paramètre sélectionné
+- `h` : afficher l'aide des commandes
 
 États du menu :
 - SelectSensor : choisir quel capteur éditer
 - SelectParam : choisir un paramètre
 - EditParam : modifier la valeur du paramètre
 
-Transitions détaillées : [MENU_FLOW.md](MENU_FLOW.md)
+Notes :
+- Les index sont en base 1 dans le menu.
+- Les canaux MIDI affichés à l'exécution vont de `1` à `16`.
+- Le firmware actuel n'utilise plus le flux de menu physique en appui court / appui long.
+- Quand vous envoyez `v <valeur>`, le changement est appliqué immédiatement puis sauvegardé en EEPROM.
 
-## Important : Mode MIDI vs Mode de débogage
+Transitions historiques : [MENU_FLOW.md](MENU_FLOW.md)
 
-Vounce `MidiOut` supporte deux styles de sortie :
+### Utiliser le configurateur navigateur
 
-- `logEnabled = true` (par défaut)
-  - Affiche des lignes lisibles comme `Channel: 10, Control: 1, Value: 64`
-  - Idéal pour tester et déboguer
-  - Le MIDI est quand même transmis en parallèle
-  - L'état du menu peut aussi être observé en texte lisible via le logger
+Si vous préférez un éditeur visuel plutôt que des commandes manuelles, utilisez [sensor-configurator.html](sensor-configurator.html).
 
-- `logEnabled = false`
-  - Masque la sortie texte de débogage
-  - Continue d'envoyer le MIDI normalement
-  - L'état du menu est envoyé en tant que CC MIDI 120 sur le canal 11 (canal du bouton) pour le débogage à distance
+- Servez le dépôt depuis `localhost` avec un petit serveur statique.
+- Ouvrez la page dans Edge ou Chrome.
+- Cliquez sur `Connect`, choisissez le port série Vounce, puis utilisez les cartes capteurs et contrôles générés.
+
+La page utilise le même protocole que le menu série, supprime les préfixes de log comme `[INFO]` et `[WARN]`, et sauvegarde toujours les valeurs en EEPROM via le chemin normal `v <valeur>`.
+
+## Important : comportement actuel de la sortie MIDI et série
+
+Le comportement actuel du firmware est le suivant :
+
+- Chaque CC envoyé est aussi imprimé sur le port série sous forme lisible, par exemple `Channel: 14, Control: 10, Value: 64`
+- Sur les builds Pro Micro / Leonardo / Micro compatibles, ce même CC est aussi envoyé via USB MIDI natif
+- Sur les builds non USB, ce même CC est aussi écrit en octets MIDI série bruts
+
+- `ENABLE_SERIAL_LOGGING` contrôle seulement les messages supplémentaires du `Logger`, comme les lignes `[INFO]` du menu et de l'EEPROM
+- Il ne désactive pas la trace CC imprimée par `MidiOut`
 
 Référence : [src/midi/MidiOut.h](src/midi/MidiOut.h), [src/midi/MidiOut.cpp](src/midi/MidiOut.cpp)
 
-Si vous voulez le comportement MIDI réel, instanciez `MidiOut` avec `false` dans [vounce.ino](vounce.ino).
-
-Sur les cibles Pro Micro, l'USB MIDI est activé automatiquement quand le profil de carte Arduino expose une macro USB supportée. Sur les autres cibles, Vounce utilise des octets MIDI série.
-
-### Sortie de l'état du menu via MIDI
-
-Quand `logEnabled = false`, le système de menu envoie son état en tant que messages CC MIDI 120 sur le canal 11 (le canal du capteur bouton/menu). Cela permet aux appareils MIDI externes ou aux logiciels de suivre la navigation du menu même lorsque le journal série est désactivé.
-
-**Codage de l'état du menu :**
-- Menu fermé : valeur = 0
-- Mode SelectSensor : valeur = (index du capteur sélectionné + 1) → plage 1–N (où N est le nombre de capteurs)
-- Mode SelectParam : valeur = (index du paramètre sélectionné + 100) → plage 100+
-- Mode EditParam : valeur = (valeur du paramètre contrainte) → plage 0–127
-
-Cette fonctionnalité est utile pour :
-- Surveiller l'état du menu depuis un DAW ou un moniteur MIDI
-- Mapper la navigation du menu vers du matériel externe
-- Déboguer le comportement du contrôleur dans les environnements de production
+Conséquence pratique :
+- Les builds Pro Micro USB sont les plus simples pour avoir MIDI et configuration série en parallèle.
+- Sur les cartes non USB, une même connexion série transporte actuellement du texte lisible, des logs optionnels et des octets MIDI bruts.
 
 ## Première configuration - Checklist
 
 1. Programmez le firmware sur votre carte.
-2. Branchez l'USB.
-3. Vérifiez que la vitesse série est 115200.
-4. Démarrez en mode débogage (`logEnabled = true`) pour confirmer l'activité.
-5. Bougez les commandes et confirmez que la sortie apparaît.
-6. Ouvrez le menu et vérifiez que les LEDs réagissent comme prévu.
-7. Passez au mode MIDI brut (`logEnabled = false`) pour la production.
-8. Mappez les CC entrants dans votre DAW.
+2. Sélectionnez le bon profil de carte dans `src/conf/pinout.h`.
+3. Activez les capteurs souhaités dans `src/conf/conf.h`.
+4. Branchez l'USB.
+5. Vérifiez que la vitesse série est 115200.
+6. Ouvrez le Moniteur Série avec fin de ligne `Newline` ou `Both NL & CR`.
+7. Envoyez `h` et vérifiez que les commandes du menu s'affichent.
+8. Envoyez `ls` et confirmez que les capteurs compilés apparaissent.
+9. Bougez les commandes et confirmez que la sortie CC lisible apparaît.
+10. Si vous utilisez une build Pro Micro compatible USB, confirmez aussi que le DAW voit un périphérique MIDI.
 
 ## Flux de travail lors d'une performance
 
 1. Allumez l'appareil.
-2. Gardez le menu fermé pour le contrôle MIDI normal.
-3. Si vous avez besoin d'ajuster la réponse, appui long pour ouvrir le menu.
-4. Modifiez les paramètres des capteurs (canal/CC/plage/sensibilité).
-5. Fermez le menu pour reprendre le flux MIDI.
+2. Laissez le mode lecture actif et envoyez des commandes série seulement quand nécessaire.
+3. Si vous avez besoin d'ajuster la réponse, utilisez `ls` puis `s <index>` pour sélectionner un capteur.
+4. Utilisez `p <index>` puis `v` pour consulter la valeur courante et sa plage.
+5. Envoyez `v <valeur>` pour appliquer et sauvegarder un nouveau réglage.
+6. Continuez à jouer ; les changements sont appliqués immédiatement.
 
 ## Comportement de l'encodeur et du bouton
 
 - Appuyer sur le bouton de l'encodeur ne modifie pas la valeur MIDI de l'encodeur.
 - Le mouvement de l'encodeur est ignoré tant que le bouton est maintenu.
-- Le décodeur rotatif du menu reste synchronisé pendant l'appui, ce qui garde un mode édition précis après relâchement.
-- L'entrée du bouton filtre les appuis très courts pour rejeter les faux basculements dus au bruit mécanique pendant la rotation.
+- Après le relâchement, le mouvement de l'encodeur est brièvement bloqué pour éviter de faux deltas dus au rebond.
+- L'édition du menu se fait via des commandes série.
+- L'entrée du bouton ne bascule qu'après un relâchement valide, ce qui rejette les faux appuis très courts dus au bruit mécanique pendant la rotation.
 
 ## Référence des paramètres des capteurs
 
@@ -133,7 +139,7 @@ Le contrôle encodeur rotatif.
 
 | Paramètre | Min | Max | Pas | Description |
 |-----------|-----|-----|-----|-------------|
-| midi_channel | 0 | 15 | 1 | Canal MIDI (0-15 = canaux 1-16) |
+| midi_channel | 1 | 16 | 1 | Canal MIDI affiché dans le menu |
 | midi_control | 0 | 127 | 1 | Numéro CC MIDI en sortie |
 | min | 0 | 127 | 1 | Valeur MIDI minimale (limite inférieure) |
 | max | 0 | 127 | 1 | Valeur MIDI maximale (limite supérieure) |
@@ -150,7 +156,7 @@ Le bouton poussoir ou commutateur momentané.
 
 | Paramètre | Min | Max | Pas | Description |
 |-----------|-----|-----|-----|-------------|
-| midi_channel | 0 | 15 | 1 | Canal MIDI (0-15 = canaux 1-16) |
+| midi_channel | 1 | 16 | 1 | Canal MIDI affiché dans le menu |
 | midi_control | 0 | 127 | 1 | Numéro CC MIDI en sortie |
 | value_off | 0 | 127 | 1 | Valeur MIDI quand le bouton est relâché |
 | value_on | 0 | 127 | 1 | Valeur MIDI quand le bouton est appuyé |
@@ -167,7 +173,7 @@ Curseur ou bouton analogique sur pin A0.
 
 | Paramètre | Min | Max | Pas | Description |
 |-----------|-----|-----|-----|-------------|
-| midi_channel | 0 | 15 | 1 | Canal MIDI (0-15 = canaux 1-16) |
+| midi_channel | 1 | 16 | 1 | Canal MIDI affiché dans le menu |
 | midi_control | 0 | 127 | 1 | Numéro CC MIDI en sortie |
 | analog_min | 0 | 1023 | 1 | Valeur ADC brute au minimum (0-1023) |
 | analog_max | 0 | 1023 | 1 | Valeur ADC brute au maximum (0-1023) |
@@ -186,7 +192,7 @@ Capteur de distance HC-SR04 (pins 6=trigger, 5=echo).
 
 | Paramètre | Min | Max | Pas | Description |
 |-----------|-----|-----|-----|-------------|
-| midi_channel | 0 | 15 | 1 | Canal MIDI (0-15 = canaux 1-16) |
+| midi_channel | 1 | 16 | 1 | Canal MIDI affiché dans le menu |
 | midi_control | 0 | 127 | 1 | Numéro CC MIDI en sortie |
 | dist_min_cm | 1 | 400 | 1 | Distance la plus proche à mapper (centimètres) |
 | dist_max_cm | 1 | 400 | 1 | Distance la plus éloignée à mapper (centimètres) |
@@ -209,33 +215,41 @@ Aucune sortie du tout :
 - Confirmez que le débit est 115200.
 
 Du texte lisible apparaît, mais le DAW ne reçoit pas de MIDI :
-- Sur le firmware actuel, le logging ne désactive pas la sortie MIDI.
-- S'il n'y a toujours pas de MIDI, vérifiez si votre carte utilise le transport USB MIDI ou MIDI série.
-- Pour les cartes non USB, utilisez une passerelle série-vers-MIDI.
+- Vérifiez si votre carte utilise le transport USB MIDI ou MIDI série.
+- Sur les builds Pro Micro USB, vérifiez que le profil de carte expose bien les macros USB utilisées par le firmware.
+- Sur les cartes non USB, rappelez-vous que le flux série actuel mélange texte lisible et octets MIDI série.
 
 La carte démarre, mais aucun périphérique USB MIDI n'apparaît :
 - Vérifiez que le profil de carte sélectionné dans l'outil Arduino est bien un Pro Micro / Leonardo / Micro compatible USB.
 - Reprogrammez puis rebranchez l'USB pour forcer la réénumération côté hôte.
 - Si votre toolchain ne construit pas le chemin USB MIDI, Vounce basculera vers la sortie MIDI série.
 
-Le menu ne s'ouvre pas :
-- Vérifiez le câblage du bouton utilisé par `menuButton` dans [vounce.ino](vounce.ino).
-- Vérifiez la durée de l'appui long dans l'initialisation de `ButtonInput`.
+Les commandes du menu ne répondent pas :
+- Vérifiez que le Moniteur Série est à 115200 bauds et que la fin de ligne est Newline ou Both NL & CR.
+- Envoyez `h` pour afficher les commandes du menu.
+- Rappelez-vous que les commandes de sélection valides sont `s <index>` et `p <index>`.
+
+Impossible de sélectionner capteur/paramètre :
+- Utilisez `ls` d'abord pour afficher la liste des capteurs et les index.
+- Utilisez `s <index>` et `p <index>` avec des index en base 1.
 
 Le comportement des LEDs semble incorrect :
-- Vérifiez le câblage des deux LEDs.
-- Assurez-vous que la polarité et les résistances des LEDs sont correctes.
+- Vérifiez le câblage de `PIN_LED_STATUS`.
+- Assurez-vous que la polarité et la résistance sont correctes.
+- Le clignotement n'a lieu qu'après une sauvegarde réussie, pas pendant la simple navigation.
 
 Le MIDI s'arrête pendant l'édition :
-- C'est normal.
-- Vounce met en pause le MIDI quand le menu est ouvert, puis reprend à la fermeture.
+- Vérifiez le câblage et l'activation des capteurs dans [vounce.ino](vounce.ino).
+- Dans l'exemple de câblage actuel, le streaming capteur reste actif pendant l'édition.
 
 ## Où personnaliser
 
 - Câblage et assignation des pins : [vounce.ino](vounce.ino)
+- Sélection du profil de carte : [src/conf/pinout.h](src/conf/pinout.h)
+- Activation des familles de capteurs : [src/conf/conf.h](src/conf/conf.h)
 - Logique du menu : [src/menu/ConfigMenu.cpp](src/menu/ConfigMenu.cpp)
 - Mode de transport MIDI : [src/midi/MidiOut.cpp](src/midi/MidiOut.cpp)
-- Comportement des LEDs : [src/led/LedIndicator.cpp](src/led/LedIndicator.cpp)
+- Comportement de la LED : [src/led/Led.cpp](src/led/Led.cpp)
 - Logs non-MIDI : [src/utils/Logger.cpp](src/utils/Logger.cpp)
 
 ---

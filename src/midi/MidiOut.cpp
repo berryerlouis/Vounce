@@ -20,7 +20,7 @@ void MidiOut::begin(unsigned long baudRate) {
 }
 
 void MidiOut::sendCC(byte channel, byte control, byte value) {
-    serial->println("Channel: " + String(channel) + ", Control: " + String(control) + ", Value: " + String(value));
+    serial->println("Channel: " + String(channel + 1) + ", Control: " + String(control) + ", Value: " + String(value));
 
 #ifdef VOUNCE_USE_MIDIUSB
     midiEventPacket_t event = {

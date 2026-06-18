@@ -1,27 +1,24 @@
 #include "ConfigMenu.h"
 
 ConfigMenu::ConfigMenu(
-    ButtonInput& button,
-    RotaryInput& rotary,
     Logger& logger,
-    SensorConfigEeprom* configStore,
-    MidiOut* midiOut,
-    byte midiChannel)
-    : button(button),
-      rotary(rotary),
-      logger(logger),
+    Stream& commandStream,
+    Led& ledStatus,
+    SensorConfigEeprom* configStore)
+    : logger(logger),
+      commandStream(commandStream),
+      ledStatus(ledStatus),
       configStore(configStore),
-      midiOut(midiOut),
-      midiChannel(midiChannel),
       sensors{nullptr},
       sensorCount(0),
-      mode(Closed),
+      mode(SelectSensor),
       selectedSensor(0),
-      selectedParam(0) {}
+      selectedParam(0),
+      serialCommandBuffer{0},
+      serialCommandLength(0) {}
 
 void ConfigMenu::begin() {
-    button.begin();
-    rotary.begin();
+    printSerialHelp();
 }
 
 bool ConfigMenu::addSensor(IConfigurableSensor& sensor) {
@@ -35,192 +32,205 @@ bool ConfigMenu::addSensor(IConfigurableSensor& sensor) {
 }
 
 void ConfigMenu::update() {
-    button.update();
+    processSerialInput();
+}
 
-    if (button.consumeLongPress()) {
-        handleLongPress();
-    }
+void ConfigMenu::processSerialInput() {
+    while (commandStream.available() > 0) {
+        char c = (char)commandStream.read();
 
-    if (button.consumeShortPress()) {
-        handleShortPress();
-    }
+        if (c == '\n' || c == '\r') {
+            if (serialCommandLength == 0) {
+                continue;
+            }
 
-    if (mode != Closed) {
-        int delta = rotary.consumeDelta();
-        if (delta != 0) {
-            handleEncoderDelta(delta);
+            serialCommandBuffer[serialCommandLength] = '\0';
+            executeSerialCommand(String(serialCommandBuffer));
+            serialCommandLength = 0;
+            serialCommandBuffer[0] = '\0';
+            continue;
+        }
+
+        if (serialCommandLength < SerialCommandMaxLen) {
+            serialCommandBuffer[serialCommandLength++] = c;
         }
     }
 }
 
-bool ConfigMenu::isOpen() const {
-    return mode != Closed;
-}
+void ConfigMenu::executeSerialCommand(const String& command) {
+    String cmd = command;
+    cmd.trim();
+    cmd.toLowerCase();
 
-bool ConfigMenu::isEditing() const {
-    return mode == EditParam;
-}
+    logger.info(String("Received: ") + cmd );
 
-void ConfigMenu::open() {
-    if (sensorCount == 0) {
+    if (cmd.length() == 0) {
         return;
     }
 
-    mode = SelectSensor;
-    selectedSensor = 0;
-    selectedParam = 0;
-    printState();
-}
-
-void ConfigMenu::close() {
-    mode = Closed;
-    logger.info("Menu closed");
-}
-
-void ConfigMenu::handleShortPress() {
-    if (mode == Closed) {
+    if (cmd == "h") {
+        printSerialHelp();
+        printState();
         return;
     }
 
-    if (mode == SelectSensor) {
+    if (cmd == "ls") {
+        mode = SelectSensor;
+        
+        logger.info(String("type \"s x\" with x being the sensor index"));
+        printState();
+        return;
+    }
+
+    if (cmd.startsWith("s ")) {
+        String arg = cmd.substring(1);
+        arg.trim();
+        if (arg.length() == 0) {
+            logger.info("Usage: s sensor_index");
+            return;
+        }
+
+        int index = arg.toInt();
+        if (index < 1 || index > sensorCount) {
+            logger.info(String("Invalid sensor index: ") + arg);
+            logger.info(String("Valid range: 1..") + String(sensorCount));
+            return;
+        }
+
+        logger.info(String("type \"p x\" with x being the parameter index"));
+        selectedSensor = (uint8_t)(index - 1);
         selectedParam = 0;
         mode = SelectParam;
         printState();
         return;
     }
 
-    if (mode == SelectParam) {
+    if (cmd.startsWith("p ")) {
+        if (sensorCount == 0) {
+            logger.info("No sensor available");
+            return;
+        }
+
+        IConfigurableSensor* sensor = sensors[selectedSensor];
+        uint8_t parameterCount = sensor->getParameterCount();
+        String arg = cmd.substring(1);
+        arg.trim();
+        if (arg.length() == 0) {
+            logger.info("Usage: p param_index");
+            return;
+        }
+
+        int index = arg.toInt();
+        if (index < 1 || index > parameterCount) {
+            logger.info(String("Invalid param index: ") + arg);
+            logger.info(String("Valid range: 1..") + String(parameterCount));
+            return;
+        }
+
+        logger.info(String("type \"v x\" with x being the parameter value"));
+        selectedParam = (uint8_t)(index - 1);
         mode = EditParam;
         printState();
         return;
     }
 
-    if (mode == EditParam) {
-        mode = SelectParam;
-        printState();
-    }
-}
-
-void ConfigMenu::handleLongPress() {
-    if (mode == Closed) {
-        open();
-        return;
-    }
-
-    if (mode == EditParam) {
-        mode = SelectParam;
-        printState();
-        return;
-    }
-
-    if (mode == SelectParam) {
-        mode = SelectSensor;
-        printState();
-        return;
-    }
-
-    close();
-}
-
-void ConfigMenu::handleEncoderDelta(int delta) {
-    if (sensorCount == 0) {
-        return;
-    }
-
-    if (mode == SelectSensor) {
-        int next = (int)selectedSensor + delta;
-        if (next < 0) {
-            next = sensorCount - 1;
+    if (cmd == "v") {
+        if (sensorCount == 0) {
+            logger.info("No sensor available");
+            return;
         }
-        if (next >= sensorCount) {
-            next = 0;
-        }
-        selectedSensor = (uint8_t)next;
-        selectedParam = 0;
-        printState();
-        return;
-    }
 
-    IConfigurableSensor* sensor = sensors[selectedSensor];
-    uint8_t parameterCount = sensor->getParameterCount();
-    if (parameterCount == 0) {
-        return;
-    }
-
-    if (mode == SelectParam) {
-        int next = (int)selectedParam + delta;
-        if (next < 0) {
-            next = parameterCount - 1;
-        }
-        if (next >= parameterCount) {
-            next = 0;
-        }
-        selectedParam = (uint8_t)next;
-        printState();
-        return;
-    }
-
-    if (mode == EditParam) {
+        IConfigurableSensor* sensor = sensors[selectedSensor];
         SensorParameterMeta meta;
         if (!sensor->getParameterMeta(selectedParam, meta)) {
+            logger.info("Selected parameter is invalid");
             return;
         }
 
-        int current = sensor->getParameterValue(selectedParam);
-        int next = current + (delta * meta.step);
-        next = constrain(next, meta.minValue, meta.maxValue);
-        if (next == current) {
+        int value = sensor->getParameterValue(selectedParam);
+        logger.info(String(sensor->getSensorName()) + "." + String(meta.name) +
+                    " = " + String(value) +
+                    " (range " + String(meta.minValue) + ".." + String(meta.maxValue) + ")");
+        logger.info("Usage: v value");
+        return;
+    }
+
+    if (cmd.startsWith("v ")) {
+        if (sensorCount == 0) {
+            logger.info("No sensor available");
             return;
         }
 
+        IConfigurableSensor* sensor = sensors[selectedSensor];
+        String arg = cmd.substring(1);
+        arg.trim();
+        if (arg.length() == 0) {
+            logger.info("Usage: v <value>");
+            return;
+        }
+
+        SensorParameterMeta meta;
+        if (!sensor->getParameterMeta(selectedParam, meta)) {
+            logger.info("Selected parameter is invalid");
+            return;
+        }
+
+        int value = arg.toInt();
+        int next = constrain(value, meta.minValue, meta.maxValue);
         sensor->setParameterValue(selectedParam, next);
         if (configStore != nullptr) {
-            configStore->saveParameter(selectedSensor, selectedParam);
+            if (configStore->saveParameter(selectedSensor, selectedParam)) {
+                ledStatus.blink(1000);
+            } else {
+                logger.warning("Failed to save parameter to EEPROM");
+            }
         }
+        mode = SelectParam;
         printState();
+        return;
     }
+
+    logger.info(String("Unknown menu command: ") + cmd);
+    printSerialHelp();
 }
 
-void ConfigMenu::sendMenuMidi(byte value) {
-    if (midiOut != nullptr) {
-        midiOut->sendCC(midiChannel, 120, value);
-    }
+void ConfigMenu::printSerialHelp() {
+    logger.info("Menu serial commands:");
+    logger.info("  ls    -> list sensors");
+    logger.info("  s [i] -> list sensors or select sensor index (1-based)");
+    logger.info("  p [i] -> list params or select parameter index (1-based)");
+    logger.info("  v [n] -> show current value or set value");
+    logger.info("  h     -> print this help");
 }
 
 void ConfigMenu::printState() {
-    if (mode == Closed || sensorCount == 0) {
-        sendMenuMidi(0);
+    if (sensorCount == 0) {
+        logger.info("No sensor available");
         return;
     }
 
     if (mode == SelectSensor) {
-        sendMenuMidi(selectedSensor + 1);
         for (uint8_t i = 0; i < sensorCount; ++i) {
             IConfigurableSensor* sensor = sensors[i];
-            String msg = String("Sensor: ") + sensor->getSensorName() + 
+            String msg = "["+String(i + 1)+"] => " + String("Sensor: ") + sensor->getSensorName() + 
                         " (" + String((int)i + 1) + "/" + String((int)sensorCount) + ")";
-            if(i == selectedSensor) {
-                msg += " [selected]";
-            }
             logger.info(msg);
         }
-        return;
+        if(sensorCount > 1) {
+            return;
+        }
     }
 
     IConfigurableSensor* sensor = sensors[selectedSensor];
     if (mode == SelectParam) {
-        sendMenuMidi(selectedParam + 100);
         for (uint8_t i = 0; i < sensor->getParameterCount(); ++i) {
             SensorParameterMeta meta;
             if (!sensor->getParameterMeta(i, meta)) {
                 continue;
             }
             int value = sensor->getParameterValue(i);
-            String msg = String(sensor->getSensorName()) + "." + String(meta.name) + 
+            String msg = "["+String(i + 1)+"] => " + String(sensor->getSensorName()) + "." + String(meta.name) + 
                         " = " + String(value);
-            if(i == selectedParam) {
-                msg += " [selected]";
-            }
             logger.info(msg);
         }
     } else if (mode == EditParam){
@@ -230,11 +240,7 @@ void ConfigMenu::printState() {
         }
 
         int value = sensor->getParameterValue(selectedParam);
-        sendMenuMidi(constrain(value, 0, 127));
-
-        String modeStr = "[edit]";
-        String msg = String(sensor->getSensorName()) + "." + String(meta.name) + 
-                    " = " + String(value) + " " + modeStr;
+        String msg = String(sensor->getSensorName()) + "." + String(meta.name) + " = " + String(value);
         logger.info(msg);
     }
 }

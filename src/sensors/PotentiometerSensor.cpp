@@ -76,7 +76,7 @@ uint8_t PotentiometerSensor::getParameterCount() const {
 bool PotentiometerSensor::getParameterMeta(uint8_t index, SensorParameterMeta& meta) const {
     switch (index) {
         case PotParamChannel:
-            meta = {"midi_channel", 0, 15, 1};
+            meta = {"midi_channel", 1, 16, 1};
             return true;
         case PotParamControl:
             meta = {"midi_control", 0, 127, 1};
@@ -104,7 +104,7 @@ bool PotentiometerSensor::getParameterMeta(uint8_t index, SensorParameterMeta& m
 int PotentiometerSensor::getParameterValue(uint8_t index) const {
     switch (index) {
         case PotParamChannel:
-            return channel;
+            return channel + 1;
         case PotParamControl:
             return control;
         case PotParamAnalogMin:
@@ -125,7 +125,7 @@ int PotentiometerSensor::getParameterValue(uint8_t index) const {
 void PotentiometerSensor::setParameterValue(uint8_t index, int newValue) {
     switch (index) {
         case PotParamChannel:
-            channel = (byte)constrain(newValue, 0, 15);
+            channel = (byte)constrain(newValue, 1, 16) - 1;
             break;
         case PotParamControl:
             control = (byte)constrain(newValue, 0, 127);

@@ -43,8 +43,14 @@ class EncoderSensor : public IMidiSensor, public IConfigurableSensor {
     int value;
     int lastSentValue;
 
-    int lastStateCLK;
+    uint8_t lastABState;
+    int8_t stepAccumulator;
     bool pending;
     uint8_t lockPin;
     bool lockEnabled;
+    bool lockRawStateLow;
+    bool lockStableStateLow;
+    unsigned long lockRawChangeMs;
+    unsigned long suppressUntilMs;
+    unsigned long lastTransitionUs;
 };

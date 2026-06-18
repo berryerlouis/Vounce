@@ -16,7 +16,7 @@ class Led {
 
     void setMode(Mode mode);
     void setBrightness(uint8_t brightness);
-    void setBlinkPeriod(unsigned long period);
+    void blink(unsigned long period);
 
     bool isOn() const;
     Mode getMode() const;
@@ -25,8 +25,9 @@ class Led {
     uint8_t pin;
     Mode mode;
     uint8_t brightness;
-    unsigned long blinkPeriod;
+    unsigned long blinkInterval;
     unsigned long lastBlinkTime;
+    unsigned long blinkEndPeriod;
     bool blinkState;
 
     void applyBrightness();

@@ -101,7 +101,7 @@ uint8_t UltrasonicSensor::getParameterCount() const {
 bool UltrasonicSensor::getParameterMeta(uint8_t index, SensorParameterMeta& meta) const {
     switch (index) {
         case UltraParamChannel:
-            meta = {"midi_channel", 0, 15, 1};
+            meta = {"midi_channel", 1, 16, 1};
             return true;
         case UltraParamControl:
             meta = {"midi_control", 0, 127, 1};
@@ -132,7 +132,7 @@ bool UltrasonicSensor::getParameterMeta(uint8_t index, SensorParameterMeta& meta
 int UltrasonicSensor::getParameterValue(uint8_t index) const {
     switch (index) {
         case UltraParamChannel:
-            return channel;
+            return channel + 1;
         case UltraParamControl:
             return control;
         case UltraParamMinDistance:
@@ -155,7 +155,7 @@ int UltrasonicSensor::getParameterValue(uint8_t index) const {
 void UltrasonicSensor::setParameterValue(uint8_t index, int newValue) {
     switch (index) {
         case UltraParamChannel:
-            channel = (byte)constrain(newValue, 0, 15);
+            channel = (byte)constrain(newValue, 1, 16) - 1;
             break;
         case UltraParamControl:
             control = (byte)constrain(newValue, 0, 127);

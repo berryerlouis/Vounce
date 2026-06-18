@@ -4,14 +4,21 @@ This document describes available pin configurations for different microcontroll
 
 ## Quick Switch
 
-In [vounce.ino](vounce.ino), uncomment your board type:
+Select your board profile in [src/conf/pinout.h](src/conf/pinout.h):
 
 ```cpp
-#define PINOUT_UNO_NANO
-// #define PINOUT_PRO_MICRO
+//#define PINOUT_UNO_NANO
+#define PINOUT_PRO_MICRO
 ```
 
 Then comment out all others.
+
+The selected header pulls pins from:
+
+- [src/conf/pinout_nano.h](src/conf/pinout_nano.h)
+- [src/conf/pinout_pro.h](src/conf/pinout_pro.h)
+
+Sensor families are enabled separately in [src/conf/conf.h](src/conf/conf.h).
 
 ## Configuration 1: Arduino Uno / Nano (Default)
 
@@ -23,9 +30,7 @@ Then comment out all others.
 | Encoder CLK | D3 | |
 | Encoder DT | D2 | |
 | Encoder Switch | D4 | |
-| Menu Button | D8 | |
-| Menu LED | D9 | PWM capable |
-| Idle LED | D10 | PWM capable |
+| Status LED | D9 | Single LED used for startup and save feedback |
 | Potentiometer | A0 | Optional |
 | Ultrasonic Trigger | D6 | Optional |
 | Ultrasonic Echo | D5 | Optional |
@@ -38,8 +43,13 @@ Then comment out all others.
 **Typical Wiring:**
 - Connect GND and 5V from all components
 - Encoder: 3 wires (CLK, DT, SW) + GND
-- LEDs: 2 pins (each needs resistor ~220Ω)
-- Button: 1 pin + GND (with pullup)
+- Status LED: 1 pin with resistor (~220Ω)
+- Potentiometer and ultrasonic pins are only needed if those sensor families are enabled in [src/conf/conf.h](src/conf/conf.h)
+
+**Notes:**
+- There is no dedicated menu button in the current firmware.
+- Configuration is done over serial or through [sensor-configurator.html](sensor-configurator.html).
+- The status LED is briefly on during startup and blinks after a successful EEPROM save.
 
 ## Configuration 2: Pro Micro 5V/16MHz
 
@@ -51,9 +61,7 @@ Then comment out all others.
 | Encoder CLK | D2 | |
 | Encoder DT | D3 | |
 | Encoder Switch | D4 | |
-| Menu Button | D5 | |
-| Menu LED | D6 | PWM capable |
-| Idle LED | D7 | PWM capable |
+| Status LED | D6 | Single LED used for startup and save feedback |
 | Potentiometer | A0 | Optional |
 | Ultrasonic Trigger | D14 (MISO) | Optional, careful with SPI |
 | Ultrasonic Echo | D15 (MOSI) | Optional, careful with SPI |
@@ -64,7 +72,7 @@ Then comment out all others.
 
 **Advantages:**
 - More compact form factor
-- Built-in USB MIDI support possible (with firmware modification)
+- Built-in USB MIDI support is enabled automatically on supported board definitions
 - Good for portable rigs
 
 **Limitations:**
@@ -75,38 +83,42 @@ Then comment out all others.
 **Typical Wiring:**
 - Connect GND and RAW (5V) from all components
 - Encoder: same 3 wires (CLK, DT, SW) + GND
-- LEDs: 2 pins (each needs resistor ~220Ω)
-- Button: 1 pin + GND (with pullup)
+- Status LED: D6 with resistor (~220Ω)
+- Potentiometer and ultrasonic pins are only needed if those sensor families are enabled in [src/conf/conf.h](src/conf/conf.h)
+
+**Notes:**
+- There is no dedicated menu button in the current firmware.
+- On supported Pro Micro, Leonardo, and Micro targets, [src/conf/pinout_pro.h](src/conf/pinout_pro.h) defines `VOUNCE_USE_MIDIUSB` automatically.
+- Configuration is still done over serial or Web Serial using the same menu protocol.
 
 ## Adding More Boards
 
 To add a new board configuration:
 
 1. Add a new `#define PINOUT_BOARD_NAME` symbol
-2. Add a new `#ifdef` block in [vounce.ino](vounce.ino) with pin definitions
-3. Document in this file
-4. Update the quick switch comments
+2. Add a new pin header in `src/conf/`
+3. Include it from [src/conf/pinout.h](src/conf/pinout.h)
+4. Document in this file
+5. Update the quick switch comments
 
 Example:
 
 ```cpp
-// In vounce.ino
+// In src/conf/pinout.h
 #ifdef PINOUT_STM32
-#define PIN_CLK   PA1
-#define PIN_DT    PA2
-// ... other pins
+#include "pinout_stm32.h"
 #endif
 ```
 
 ## Pro Micro USB MIDI (Advanced)
 
-Pro Micro boards can communicate directly via USB as MIDI devices without serial/host bridge. This requires:
+Pro Micro-compatible boards can communicate directly via USB as MIDI devices when the selected Arduino core exposes one of the supported USB board macros.
 
-1. Different firmware (using `usbMIDI` library or equivalent)
-2. Removing the serial logger dependency
-3. Implementing `midiOut.sendCC()` directly to USB stack
+Current behavior:
 
-Current implementation uses Serial output only.
+- [src/conf/pinout_pro.h](src/conf/pinout_pro.h) enables `VOUNCE_USE_MIDIUSB` automatically for supported Pro Micro / Leonardo / Micro targets.
+- [src/midi/MidiOut.cpp](src/midi/MidiOut.cpp) sends CC messages through `MIDIUSB` on those targets.
+- The firmware still uses serial for configuration commands and readable CC/log output.
 
 ## Troubleshooting Pin Issues
 
@@ -120,10 +132,11 @@ Current implementation uses Serial output only.
 - Uno/Nano: Verify D2, D3, D4 are free
 - Check encoder wiring + GND connection
 
-**LEDs don't respond:**
+**Status LED doesn't respond:**
 - Verify resistors are installed (~220Ω for 5V)
 - Check polarity (longer leg = +)
 - Test with digitalWrite() directly to rule out brightness settings
+- Remember this LED is normally off after startup and only blinks after a successful parameter save
 
 **Ultrasonic doesn't trigger (Pro Micro only):**
 - MISO/MOSI (D14/D15) can interfere with SPI if enabled

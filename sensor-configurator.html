@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vounce Sensor Configurator</title>
+  <style>
+    :root {
+      --bg-0: #0a0f19;
+      --bg-1: #0f1728;
+      --bg-2: #121b2f;
+      --panel: rgba(19, 27, 44, 0.82);
+      --panel-strong: rgba(23, 33, 54, 0.95);
+      --text: #e9eefb;
+      --muted: #9da9c4;
+      --accent: #2ad4bf;
+      --accent-strong: #11b8a4;
+      --accent-soft: rgba(42, 212, 191, 0.18);
+      --warn: #f0ad4e;
+      --danger: #ff6a7a;
+      --border: rgba(153, 176, 219, 0.24);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 20px 42px rgba(2, 6, 14, 0.45);
+      --font-head: "Avenir Next Condensed", "Franklin Gothic Medium", "Arial Narrow", sans-serif;
+      --font-body: "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--font-body);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(42, 212, 191, 0.18), transparent 28%),
+        radial-gradient(circle at 95% 5%, rgba(107, 140, 255, 0.2), transparent 24%),
+        linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(174, 194, 230, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(174, 194, 230, 0.04) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    main {
+      position: relative;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 14px 20px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr);
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-family: var(--font-head);
+      font-size: clamp(1.8rem, 3vw, 2.7rem);
+      line-height: 0.96;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .title p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      background: rgba(157, 169, 196, 0.12);
+      border: 1px solid rgba(157, 169, 196, 0.22);
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .status-box {
+      background: var(--panel-strong);
+      border: 1px solid rgba(153, 176, 219, 0.22);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      min-height: 72px;
+    }
+
+    .status-box h2 {
+      margin: 0 0 8px;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: var(--font-head);
+      font-weight: 700;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      background: rgba(157, 169, 196, 0.12);
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 0.82rem;
+    }
+
+    .status-pill::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 0 4px rgba(240, 173, 78, 0.18);
+    }
+
+    .status-pill.online::before {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(42, 212, 191, 0.18);
+    }
+
+    .status-pill.error::before {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(255, 106, 122, 0.18);
+    }
+
+    .stat-label {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .stat-label strong {
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .section {
+      padding: 14px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+
+    h2,
+    h3 {
+      margin: 0;
+      font-family: var(--font-head);
+      letter-spacing: 0.03em;
+      font-weight: 700;
+    }
+
+    h2 {
+      font-size: 1.18rem;
+    }
+
+    h3 {
+      font-size: 0.96rem;
+    }
+
+    .section-head p,
+    .subtitle {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.35;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 0.86rem;
+      cursor: pointer;
+      transition: transform 110ms ease, opacity 110ms ease, background-color 110ms ease;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button:hover:enabled {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      color: #031015;
+      background: var(--accent);
+    }
+
+    .primary:hover:enabled {
+      background: var(--accent-strong);
+    }
+
+    .secondary {
+      color: var(--text);
+      background: rgba(153, 176, 219, 0.2);
+    }
+
+    .ghost {
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid rgba(153, 176, 219, 0.25);
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .warning {
+      margin-top: 8px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 106, 122, 0.26);
+      color: #ffc6ce;
+      background: rgba(255, 106, 122, 0.1);
+      padding: 8px 10px;
+      font-size: 0.84rem;
+    }
+
+    .sensor-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sensor-card {
+      width: 100%;
+      text-align: left;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(153, 176, 219, 0.22);
+      background: var(--panel-strong);
+      color: inherit;
+      padding: 11px;
+    }
+
+    .sensor-card.active {
+      border-color: rgba(42, 212, 191, 0.5);
+      background: linear-gradient(140deg, rgba(20, 34, 54, 0.95), rgba(26, 63, 69, 0.78));
+    }
+
+    .sensor-card strong,
+    .sensor-card span {
+      display: block;
+    }
+
+    .sensor-card strong {
+      font-size: 0.95rem;
+      margin-bottom: 2px;
+    }
+
+    .sensor-card span {
+      color: var(--muted);
+      font-size: 0.79rem;
+      line-height: 1.3;
+    }
+
+    .empty {
+      border-radius: var(--radius-sm);
+      border: 1px dashed rgba(153, 176, 219, 0.3);
+      color: var(--muted);
+      background: rgba(153, 176, 219, 0.06);
+      padding: 12px;
+      font-size: 0.83rem;
+    }
+
+    .parameter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 7px;
+    }
+
+    .parameter-card {
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(153, 176, 219, 0.24);
+      background: var(--panel-strong);
+      padding: 9px;
+    }
+
+    .parameter-card header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .parameter-meta {
+      margin: 1px 0 0;
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .badge {
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #7cebdd;
+      padding: 4px 8px;
+      font-size: 0.73rem;
+      white-space: nowrap;
+    }
+
+    .badge.dirty {
+      background: rgba(240, 173, 78, 0.19);
+      color: #ffd18c;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 100px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid rgba(153, 176, 219, 0.28);
+      border-radius: 8px;
+      background: rgba(7, 14, 25, 0.75);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 7px 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .parameter-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 74px auto;
+      gap: 7px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .parameter-controls input[type="number"] {
+      text-align: right;
+      padding: 6px 7px;
+      font-size: 0.8rem;
+    }
+
+    .parameter-actions {
+      display: inline-flex;
+      gap: 6px;
+      justify-self: end;
+    }
+
+    .param-action {
+      border-radius: 8px;
+      padding: 5px 7px;
+      font-size: 0.76rem;
+      line-height: 1;
+    }
+
+    .meta-line {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .footer-logs {
+      padding: 12px;
+    }
+
+    .log-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .log-title {
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-family: var(--font-head);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .log {
+      margin: 0;
+      min-height: 170px;
+      max-height: 210px;
+      overflow: auto;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(153, 176, 219, 0.2);
+      background: #050a13;
+      color: #cbd5f0;
+      padding: 10px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.78rem;
+      line-height: 1.42;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 980px) {
+      .header,
+      .layout,
+      .log-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .status-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-row {
+        grid-template-columns: 1fr;
+      }
+
+      .parameter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .parameter-controls {
+        grid-template-columns: minmax(0, 1fr) 72px;
+      }
+
+      .parameter-actions {
+        grid-column: 1 / -1;
+        justify-self: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel header">
+      <div class="title">
+        <h1>Vounce Sensor Configurator</h1>
+        <p>Serial editing for live sensor parameters + optional MIDI monitor.</p>
+        <div class="chips">
+          <span class="chip">Dark UI</span>
+          <span class="chip">Web Serial</span>
+          <span class="chip">Web MIDI</span>
+        </div>
+      </div>
+      <div class="status-grid">
+        <div class="status-box">
+          <h2>Serial</h2>
+          <div id="serialStatusPill" class="status-pill">Disconnected</div>
+          <div class="stat-label">Sensors connected: <strong id="connectedSensorsCount">0</strong></div>
+        </div>
+        <div class="status-box">
+          <h2>MIDI</h2>
+          <div id="midiStatusPill" class="status-pill">Disconnected</div>
+          <div class="stat-label">Supported sensors: <strong id="supportedSensorsText">-</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <div class="stack">
+        <section class="panel section">
+          <div class="section-head">
+            <div>
+              <h2>Connection</h2>
+              <p>Connect serial and optional MIDI monitor.</p>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="connectButton" class="primary">Connect Serial</button>
+            <button id="refreshButton" class="secondary" disabled>Refresh Sensors</button>
+            <button id="disconnectButton" class="ghost" disabled>Disconnect Serial</button>
+          </div>
+          <div class="actions" style="margin-top: 8px;">
+            <button id="enableMidiButton" class="secondary">Enable MIDI Monitor</button>
+            <button id="disableMidiButton" class="ghost" disabled>Disable MIDI Monitor</button>
+          </div>
+          <div class="hint">Use Edge or Chrome. Serial baud is 115200.</div>
+          <div id="supportWarning" class="warning" hidden>
+            Web Serial is unavailable in this browser.
+          </div>
+          <div id="midiWarning" class="warning" hidden>
+            Web MIDI is unavailable in this browser.
+          </div>
+        </section>
+
+        <section class="panel section">
+          <div class="section-head">
+            <div>
+              <h2>Sensors</h2>
+              <p>Detected from firmware response to ls.</p>
+            </div>
+          </div>
+          <div id="sensorList" class="sensor-list">
+            <div class="empty">Connect serial to load sensors.</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel section">
+        <div class="section-head">
+          <div>
+            <h2 id="parameterTitle">Parameters</h2>
+            <p id="parameterSubtitle" class="subtitle">Select a sensor to edit values.</p>
+          </div>
+          <div class="actions">
+            <button id="applyAllButton" class="primary" disabled>Apply Pending</button>
+          </div>
+        </div>
+        <div id="parameterList" class="parameter-grid">
+          <div class="empty">No sensor selected.</div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="panel footer-logs">
+      <div class="log-grid">
+        <div>
+          <h3 class="log-title">Serial Logger</h3>
+          <pre id="serialLog" class="log">Waiting for serial connection...</pre>
+        </div>
+        <div>
+          <h3 class="log-title">MIDI Logger</h3>
+          <pre id="midiLog" class="log">MIDI monitor disabled.</pre>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const SERIAL_PORT_FILTERS = [
+      { usbVendorId: 0x2341 },
+      { usbVendorId: 0x2a03 }
+    ];
+
+    const SENSOR_SPECS = {
+      Encoder: {
+        description: "Rotary encoder CC source.",
+        parameters: {
+          midi_channel: { label: "MIDI Channel", min: 0, max: 15, step: 1, help: "0 is MIDI ch 1." },
+          midi_control: { label: "MIDI Control", min: 0, max: 127, step: 1, help: "CC number." },
+          min: { label: "Minimum", min: 0, max: 127, step: 1, help: "Lower bound." },
+          max: { label: "Maximum", min: 0, max: 127, step: 1, help: "Upper bound." },
+          sensitivity: { label: "Sensitivity", min: 1, max: 16, step: 1, help: "Delta per detent." }
+        }
+      },
+      ToggleSwitch: {
+        description: "Switch with debounce.",
+        parameters: {
+          midi_channel: { label: "MIDI Channel", min: 0, max: 15, step: 1, help: "0 is MIDI ch 1." },
+          midi_control: { label: "MIDI Control", min: 0, max: 127, step: 1, help: "CC number." },
+          value_off: { label: "Value Off", min: 0, max: 127, step: 1, help: "Released value." },
+          value_on: { label: "Value On", min: 0, max: 127, step: 1, help: "Pressed value." },
+          debounce_ms: { label: "Debounce (ms)", min: 5, max: 500, step: 5, help: "Filter window." }
+        }
+      },
+      Potentiometer: {
+        description: "Analog to MIDI mapping.",
+        parameters: {
+          midi_channel: { label: "MIDI Channel", min: 0, max: 15, step: 1, help: "0 is MIDI ch 1." },
+          midi_control: { label: "MIDI Control", min: 0, max: 127, step: 1, help: "CC number." },
+          analog_min: { label: "Analog Min", min: 0, max: 1023, step: 1, help: "Raw minimum." },
+          analog_max: { label: "Analog Max", min: 0, max: 1023, step: 1, help: "Raw maximum." },
+          midi_min: { label: "MIDI Min", min: 0, max: 127, step: 1, help: "Output minimum." },
+          midi_max: { label: "MIDI Max", min: 0, max: 127, step: 1, help: "Output maximum." },
+          threshold: { label: "Threshold", min: 1, max: 16, step: 1, help: "Minimum delta." }
+        }
+      },
+      Ultrasonic: {
+        description: "Distance to MIDI mapping.",
+        parameters: {
+          midi_channel: { label: "MIDI Channel", min: 0, max: 15, step: 1, help: "0 is MIDI ch 1." },
+          midi_control: { label: "MIDI Control", min: 0, max: 127, step: 1, help: "CC number." },
+          dist_min_cm: { label: "Distance Min", min: 1, max: 400, step: 1, help: "Nearest point." },
+          dist_max_cm: { label: "Distance Max", min: 1, max: 400, step: 1, help: "Farthest point." },
+          midi_min: { label: "MIDI Min", min: 0, max: 127, step: 1, help: "Output at min dist." },
+          midi_max: { label: "MIDI Max", min: 0, max: 127, step: 1, help: "Output at max dist." },
+          sample_ms: { label: "Sample (ms)", min: 10, max: 500, step: 5, help: "Sample period." },
+          threshold: { label: "Threshold", min: 1, max: 16, step: 1, help: "Minimum delta." }
+        }
+      }
+    };
+
+    const state = {
+      connected: false,
+      port: null,
+      reader: null,
+      writer: null,
+      keepReading: false,
+      readLoopPromise: null,
+      buffer: "",
+      listeners: new Set(),
+      sensors: [],
+      selectedSensorIndex: null,
+      busy: false,
+      dirtyValues: new Map(),
+      midiEnabled: false,
+      midiAccess: null,
+      midiHandler: null
+    };
+
+    const elements = {
+      serialStatusPill: document.getElementById("serialStatusPill"),
+      midiStatusPill: document.getElementById("midiStatusPill"),
+      connectedSensorsCount: document.getElementById("connectedSensorsCount"),
+      supportedSensorsText: document.getElementById("supportedSensorsText"),
+      connectButton: document.getElementById("connectButton"),
+      refreshButton: document.getElementById("refreshButton"),
+      disconnectButton: document.getElementById("disconnectButton"),
+      enableMidiButton: document.getElementById("enableMidiButton"),
+      disableMidiButton: document.getElementById("disableMidiButton"),
+      applyAllButton: document.getElementById("applyAllButton"),
+      sensorList: document.getElementById("sensorList"),
+      parameterTitle: document.getElementById("parameterTitle"),
+      parameterSubtitle: document.getElementById("parameterSubtitle"),
+      parameterList: document.getElementById("parameterList"),
+      serialLog: document.getElementById("serialLog"),
+      midiLog: document.getElementById("midiLog"),
+      supportWarning: document.getElementById("supportWarning"),
+      midiWarning: document.getElementById("midiWarning")
+    };
+
+    function setSerialStatus(text, kind = "idle") {
+      elements.serialStatusPill.textContent = text;
+      elements.serialStatusPill.classList.remove("online", "error");
+      if (kind === "online") {
+        elements.serialStatusPill.classList.add("online");
+      }
+      if (kind === "error") {
+        elements.serialStatusPill.classList.add("error");
+      }
+    }
+
+    function setMidiStatus(text, kind = "idle") {
+      elements.midiStatusPill.textContent = text;
+      elements.midiStatusPill.classList.remove("online", "error");
+      if (kind === "online") {
+        elements.midiStatusPill.classList.add("online");
+      }
+      if (kind === "error") {
+        elements.midiStatusPill.classList.add("error");
+      }
+    }
+
+    function updateHeaderStats() {
+      elements.connectedSensorsCount.textContent = String(state.sensors.length);
+      elements.supportedSensorsText.textContent = Object.keys(SENSOR_SPECS).join(", ");
+    }
+
+    function appendLog(target, line) {
+      const first = target.textContent === "Waiting for serial connection..." || target.textContent === "MIDI monitor disabled.";
+      target.textContent = first ? line : `${target.textContent}\n${line}`;
+      target.scrollTop = target.scrollHeight;
+    }
+
+    function logMidi(line) {
+      appendLog(elements.midiLog, line);
+    }
+
+    function normalizeFirmwareLine(line) {
+      return line.replace(/^\[(?:DEBUG|INFO|WARN|ERROR|LOG)\]\s+/, "").trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function hasPendingChanges() {
+      return state.dirtyValues.size > 0;
+    }
+
+    function getSensorKey(index) {
+      return `sensor:${index}`;
+    }
+
+    function getDirtyKey(sensorIndex, parameterIndex) {
+      return `${getSensorKey(sensorIndex)}:param:${parameterIndex}`;
+    }
+
+    function getSpec(sensorName, parameterName) {
+      const spec = SENSOR_SPECS[sensorName];
+      if (!spec) {
+        return null;
+      }
+      return spec.parameters[parameterName] || null;
+    }
+
+    function normalizeValue(value, spec) {
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isNaN(parsed)) {
+        return spec ? spec.min : 0;
+      }
+
+      if (!spec) {
+        return parsed;
+      }
+
+      let next = Math.max(spec.min, Math.min(spec.max, parsed));
+      if (spec.step > 1) {
+        const offset = next - spec.min;
+        next = spec.min + Math.round(offset / spec.step) * spec.step;
+        next = Math.max(spec.min, Math.min(spec.max, next));
+      }
+      return next;
+    }
+
+    function setBusy(nextBusy) {
+      state.busy = nextBusy;
+      const serialDisconnected = !state.connected;
+      elements.connectButton.disabled = nextBusy || state.connected;
+      elements.refreshButton.disabled = nextBusy || serialDisconnected;
+      elements.disconnectButton.disabled = nextBusy || serialDisconnected;
+      elements.applyAllButton.disabled = nextBusy || serialDisconnected || !hasPendingChanges();
+
+      elements.enableMidiButton.disabled = nextBusy || state.midiEnabled;
+      elements.disableMidiButton.disabled = nextBusy || !state.midiEnabled;
+
+      document.querySelectorAll("[data-apply-param]").forEach((button) => {
+        button.disabled = nextBusy || serialDisconnected;
+      });
+      document.querySelectorAll("[data-reset-param]").forEach((button) => {
+        button.disabled = nextBusy || serialDisconnected;
+      });
+      document.querySelectorAll("[data-parameter-input]").forEach((input) => {
+        input.disabled = nextBusy || serialDisconnected;
+      });
+      document.querySelectorAll("[data-parameter-range]").forEach((input) => {
+        input.disabled = nextBusy || serialDisconnected;
+      });
+    }
+
+    function renderSensors() {
+      if (state.sensors.length === 0) {
+        elements.sensorList.innerHTML = '<div class="empty">No configurable sensor was reported.</div>';
+        return;
+      }
+
+      elements.sensorList.innerHTML = state.sensors.map((sensor, idx) => {
+        const active = idx === state.selectedSensorIndex ? " active" : "";
+        const description = SENSOR_SPECS[sensor.name]?.description || "Configurable sensor.";
+        return `
+          <button class="sensor-card${active}" data-sensor-index="${idx}">
+            <strong>${escapeHtml(sensor.name)}</strong>
+            <span>Sensor ${sensor.index}</span>
+            <span>${escapeHtml(description)}</span>
+          </button>
+        `;
+      }).join("");
+
+      document.querySelectorAll("[data-sensor-index]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const idx = Number.parseInt(button.dataset.sensorIndex, 10);
+          await selectSensor(idx);
+        });
+      });
+    }
+
+    function renderParameters() {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        elements.parameterTitle.textContent = "Parameters";
+        elements.parameterSubtitle.textContent = "Select a sensor to edit values.";
+        elements.parameterList.innerHTML = '<div class="empty">No sensor selected.</div>';
+        elements.applyAllButton.disabled = true;
+        return;
+      }
+
+      const sensorSpec = SENSOR_SPECS[sensor.name];
+      elements.parameterTitle.textContent = `${sensor.name} Settings`;
+      elements.parameterSubtitle.textContent = sensorSpec?.description || `Sensor ${sensor.index}`;
+
+      elements.parameterList.innerHTML = sensor.parameters.map((parameter) => {
+        const parameterIndex = parameter.index - 1;
+        const key = getDirtyKey(state.selectedSensorIndex, parameterIndex);
+        const spec = getSpec(sensor.name, parameter.name);
+        const min = spec?.min ?? 0;
+        const max = spec?.max ?? 127;
+        const step = spec?.step ?? 1;
+        const help = spec?.help || "Firmware parameter.";
+        const label = spec?.label || parameter.name.replace(/_/g, " ");
+        const current = state.dirtyValues.has(key) ? state.dirtyValues.get(key) : parameter.value;
+        const dirty = current !== parameter.value;
+
+        return `
+          <article class="parameter-card" data-parameter-card="${parameterIndex}">
+            <header>
+              <div>
+                <h3>${escapeHtml(label)}</h3>
+                <p class="parameter-meta">${min}-${max} step ${step}</p>
+              </div>
+              <span class="badge${dirty ? " dirty" : ""}" data-parameter-badge="${parameterIndex}">${dirty ? "Pending" : "Current"}</span>
+            </header>
+            <div class="parameter-controls">
+              <input
+                id="range-${parameter.index}"
+                type="range"
+                data-parameter-range="${parameterIndex}"
+                min="${min}"
+                max="${max}"
+                step="${step}"
+                value="${current}">
+              <input
+                id="field-${parameter.index}"
+                type="number"
+                data-parameter-input="${parameterIndex}"
+                min="${min}"
+                max="${max}"
+                step="${step}"
+                value="${current}">
+              <div class="parameter-actions">
+                <button class="secondary param-action" data-apply-param="${parameterIndex}">Apply</button>
+                <button class="ghost param-action" data-reset-param="${parameterIndex}">Reset</button>
+              </div>
+            </div>
+            <div class="meta-line" data-parameter-meta="${parameterIndex}">#${parameter.index} saved ${parameter.value} | ${escapeHtml(help)}</div>
+          </article>
+        `;
+      }).join("");
+
+      document.querySelectorAll("[data-parameter-input]").forEach((input) => {
+        input.addEventListener("input", () => {
+          syncParameterDraft(Number.parseInt(input.dataset.parameterInput, 10), input.value, "number");
+        });
+      });
+
+      document.querySelectorAll("[data-parameter-range]").forEach((input) => {
+        input.addEventListener("input", () => {
+          syncParameterDraft(Number.parseInt(input.dataset.parameterRange, 10), input.value, "range");
+        });
+      });
+
+      document.querySelectorAll("[data-apply-param]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          await applyParameter(Number.parseInt(button.dataset.applyParam, 10));
+        });
+      });
+
+      document.querySelectorAll("[data-reset-param]").forEach((button) => {
+        button.addEventListener("click", () => {
+          resetParameterDraft(Number.parseInt(button.dataset.resetParam, 10));
+        });
+      });
+
+      setBusy(state.busy);
+    }
+
+    function updateParameterCardState(parameterIndex) {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        return;
+      }
+
+      const parameter = sensor.parameters[parameterIndex];
+      if (!parameter) {
+        return;
+      }
+
+      const key = getDirtyKey(state.selectedSensorIndex, parameterIndex);
+      const current = state.dirtyValues.has(key) ? state.dirtyValues.get(key) : parameter.value;
+      const isDirty = current !== parameter.value;
+
+      const badge = document.querySelector(`[data-parameter-badge="${parameterIndex}"]`);
+      if (badge) {
+        badge.textContent = isDirty ? "Pending" : "Current";
+        badge.classList.toggle("dirty", isDirty);
+      }
+
+      elements.applyAllButton.disabled = state.busy || !state.connected || !hasPendingChanges();
+    }
+
+    function syncParameterDraft(parameterIndex, rawValue, source) {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        return;
+      }
+
+      const parameter = sensor.parameters[parameterIndex];
+      if (!parameter) {
+        return;
+      }
+
+      const spec = getSpec(sensor.name, parameter.name);
+      const normalized = normalizeValue(rawValue, spec);
+      const key = getDirtyKey(state.selectedSensorIndex, parameterIndex);
+
+      if (normalized === parameter.value) {
+        state.dirtyValues.delete(key);
+      } else {
+        state.dirtyValues.set(key, normalized);
+      }
+
+      const numberInput = document.querySelector(`input[data-parameter-input="${parameterIndex}"]`);
+      const rangeInput = document.querySelector(`input[data-parameter-range="${parameterIndex}"]`);
+
+      if (numberInput && (source !== "number" || numberInput.value !== String(normalized))) {
+        numberInput.value = normalized;
+      }
+      if (rangeInput && (source !== "range" || rangeInput.value !== String(normalized))) {
+        rangeInput.value = normalized;
+      }
+
+      updateParameterCardState(parameterIndex);
+    }
+
+    function resetParameterDraft(parameterIndex) {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        return;
+      }
+      const parameter = sensor.parameters[parameterIndex];
+      if (!parameter) {
+        return;
+      }
+
+      const key = getDirtyKey(state.selectedSensorIndex, parameterIndex);
+      state.dirtyValues.delete(key);
+
+      const numberInput = document.querySelector(`input[data-parameter-input="${parameterIndex}"]`);
+      const rangeInput = document.querySelector(`input[data-parameter-range="${parameterIndex}"]`);
+      if (numberInput) {
+        numberInput.value = parameter.value;
+      }
+      if (rangeInput) {
+        rangeInput.value = parameter.value;
+      }
+
+      updateParameterCardState(parameterIndex);
+    }
+
+    function handleSerialLine(line) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return;
+      }
+      appendLog(elements.serialLog, trimmed);
+      state.listeners.forEach((listener) => listener(normalizeFirmwareLine(trimmed)));
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+
+      while (state.keepReading && state.reader) {
+        const { value, done } = await state.reader.read();
+        if (done) {
+          break;
+        }
+
+        state.buffer += decoder.decode(value, { stream: true });
+        let breakIndex = state.buffer.search(/[\r\n]/);
+
+        while (breakIndex >= 0) {
+          const line = state.buffer.slice(0, breakIndex);
+          state.buffer = state.buffer.slice(breakIndex + 1);
+          if (state.buffer.startsWith("\n") || state.buffer.startsWith("\r")) {
+            state.buffer = state.buffer.slice(1);
+          }
+
+          handleSerialLine(line);
+          breakIndex = state.buffer.search(/[\r\n]/);
+        }
+      }
+    }
+
+    async function writeLine(command) {
+      if (!state.writer) {
+        throw new Error("Serial writer is not ready.");
+      }
+      await state.writer.write(new TextEncoder().encode(`${command}\n`));
+    }
+
+    async function runCommand(command, options = {}) {
+      const idleMs = options.idleMs ?? 220;
+      const timeoutMs = options.timeoutMs ?? 2400;
+
+      return new Promise(async (resolve, reject) => {
+        const lines = [];
+        let settled = false;
+        let idleTimer = null;
+        let hardTimer = null;
+
+        const cleanup = () => {
+          state.listeners.delete(listener);
+          window.clearTimeout(idleTimer);
+          window.clearTimeout(hardTimer);
+        };
+
+        const finish = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          cleanup();
+          resolve(lines);
+        };
+
+        const listener = (line) => {
+          lines.push(line);
+          window.clearTimeout(idleTimer);
+          idleTimer = window.setTimeout(finish, idleMs);
+        };
+
+        state.listeners.add(listener);
+        idleTimer = window.setTimeout(finish, idleMs);
+        hardTimer = window.setTimeout(finish, timeoutMs);
+
+        try {
+          await writeLine(command);
+        } catch (error) {
+          cleanup();
+          reject(error);
+        }
+      });
+    }
+
+    function parseSensorList(lines) {
+      return lines
+        .map((line) => line.match(/^\[(\d+)\]\s*=>\s*Sensor:\s*(.+?)\s*\((\d+)\/(\d+)\)$/))
+        .filter(Boolean)
+        .map((match) => ({
+          index: Number.parseInt(match[1], 10),
+          name: match[2],
+          ordinal: Number.parseInt(match[3], 10),
+          total: Number.parseInt(match[4], 10),
+          parameters: []
+        }));
+    }
+
+    function parseParameterList(lines) {
+      return lines
+        .map((line) => line.match(/^\[(\d+)\]\s*=>\s*([^\.]+)\.([a-zA-Z0-9_]+)\s*=\s*(-?\d+)$/))
+        .filter(Boolean)
+        .map((match) => ({
+          index: Number.parseInt(match[1], 10),
+          sensorName: match[2],
+          name: match[3],
+          value: Number.parseInt(match[4], 10)
+        }));
+    }
+
+    async function refreshSensors() {
+      setBusy(true);
+      setSerialStatus("Reading sensors...", "online");
+
+      try {
+        const lines = await runCommand("ls");
+        state.sensors = parseSensorList(lines);
+        state.selectedSensorIndex = state.sensors.length > 0 ? 0 : null;
+        state.dirtyValues.clear();
+        updateHeaderStats();
+        renderSensors();
+
+        if (state.selectedSensorIndex !== null) {
+          await selectSensor(state.selectedSensorIndex);
+        } else {
+          renderParameters();
+        }
+
+        setSerialStatus(`Connected (${state.sensors.length} sensor${state.sensors.length === 1 ? "" : "s"})`, "online");
+      } catch (error) {
+        setSerialStatus(error.message || "Read failed", "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function selectSensor(index) {
+      if (index < 0 || index >= state.sensors.length) {
+        return;
+      }
+
+      setBusy(true);
+      try {
+        const lines = await runCommand(`s ${index + 1}`);
+        state.sensors[index].parameters = parseParameterList(lines);
+        state.selectedSensorIndex = index;
+
+        state.dirtyValues.forEach((_, key) => {
+          if (key.startsWith(getSensorKey(index))) {
+            state.dirtyValues.delete(key);
+          }
+        });
+
+        renderSensors();
+        renderParameters();
+        setSerialStatus(`Editing ${state.sensors[index].name}`, "online");
+      } catch (error) {
+        setSerialStatus(error.message || "Select failed", "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function applyParameter(parameterIndex) {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        return;
+      }
+
+      const key = getDirtyKey(state.selectedSensorIndex, parameterIndex);
+      if (!state.dirtyValues.has(key)) {
+        return;
+      }
+
+      const value = state.dirtyValues.get(key);
+      setBusy(true);
+      try {
+        await runCommand(`s ${state.selectedSensorIndex + 1}`);
+        await runCommand(`p ${parameterIndex + 1}`);
+        const lines = await runCommand(`v ${value}`);
+
+        const fresh = parseParameterList(lines);
+        if (fresh.length > 0) {
+          sensor.parameters = fresh;
+        } else if (sensor.parameters[parameterIndex]) {
+          sensor.parameters[parameterIndex].value = value;
+        }
+
+        state.dirtyValues.delete(key);
+        renderParameters();
+        setSerialStatus(`Saved ${sensor.parameters[parameterIndex].name}`, "online");
+      } catch (error) {
+        setSerialStatus(error.message || "Write failed", "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function applyAllChanges() {
+      const sensor = state.sensors[state.selectedSensorIndex];
+      if (!sensor) {
+        return;
+      }
+
+      const pending = sensor.parameters
+        .map((parameter, parameterIndex) => ({ parameter, parameterIndex }))
+        .filter(({ parameterIndex }) => state.dirtyValues.has(getDirtyKey(state.selectedSensorIndex, parameterIndex)));
+
+      if (pending.length === 0) {
+        return;
+      }
+
+      setBusy(true);
+      try {
+        for (const item of pending) {
+          const value = state.dirtyValues.get(getDirtyKey(state.selectedSensorIndex, item.parameterIndex));
+          setSerialStatus(`Writing ${item.parameter.name}...`, "online");
+          await runCommand(`s ${state.selectedSensorIndex + 1}`);
+          await runCommand(`p ${item.parameterIndex + 1}`);
+          await runCommand(`v ${value}`);
+          sensor.parameters[item.parameterIndex].value = value;
+          state.dirtyValues.delete(getDirtyKey(state.selectedSensorIndex, item.parameterIndex));
+        }
+
+        await selectSensor(state.selectedSensorIndex);
+        setSerialStatus(`Saved ${pending.length} value${pending.length === 1 ? "" : "s"}`, "online");
+      } catch (error) {
+        setSerialStatus(error.message || "Batch write failed", "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function disconnectSerial() {
+      setBusy(true);
+
+      try {
+        state.keepReading = false;
+
+        if (state.reader) {
+          await state.reader.cancel();
+          state.reader.releaseLock();
+          state.reader = null;
+        }
+
+        if (state.readLoopPromise) {
+          try {
+            await state.readLoopPromise;
+          } catch (error) {
+            // Ignore cancellation errors.
+          }
+          state.readLoopPromise = null;
+        }
+
+        if (state.writer) {
+          state.writer.releaseLock();
+          state.writer = null;
+        }
+
+        if (state.port) {
+          await state.port.close();
+          state.port = null;
+        }
+      } finally {
+        state.connected = false;
+        state.sensors = [];
+        state.selectedSensorIndex = null;
+        state.dirtyValues.clear();
+        updateHeaderStats();
+        renderSensors();
+        renderParameters();
+        setSerialStatus("Disconnected");
+        setBusy(false);
+      }
+    }
+
+    async function connectSerial() {
+      if (!navigator.serial) {
+        elements.supportWarning.hidden = false;
+        setSerialStatus("Web Serial unavailable", "error");
+        return;
+      }
+
+      setBusy(true);
+      setSerialStatus("Waiting for port...");
+
+      try {
+        state.port = await navigator.serial.requestPort({ filters: SERIAL_PORT_FILTERS });
+        await state.port.open({ baudRate: 115200 });
+
+        state.writer = state.port.writable.getWriter();
+        state.reader = state.port.readable.getReader();
+        state.keepReading = true;
+        state.readLoopPromise = readLoop();
+        state.connected = true;
+
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        await runCommand("h", { idleMs: 260, timeoutMs: 2600 });
+        await refreshSensors();
+      } catch (error) {
+        setSerialStatus(error.message || "Connection failed", "error");
+        await disconnectSerial();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function formatMidiMessage(data) {
+      const bytes = Array.from(data).map((b) => b.toString(16).padStart(2, "0"));
+      const status = data[0] & 0xf0;
+      const channel = (data[0] & 0x0f) + 1;
+
+      if (status === 0xb0 && data.length >= 3) {
+        return `CC ch ${channel} ctrl ${data[1]} val ${data[2]} [${bytes.join(" ")}]`;
+      }
+      if (status === 0x90 && data.length >= 3) {
+        return `NoteOn ch ${channel} note ${data[1]} vel ${data[2]} [${bytes.join(" ")}]`;
+      }
+      if (status === 0x80 && data.length >= 3) {
+        return `NoteOff ch ${channel} note ${data[1]} vel ${data[2]} [${bytes.join(" ")}]`;
+      }
+      return `MIDI [${bytes.join(" ")}]`;
+    }
+
+    function bindMidiInputs() {
+      if (!state.midiAccess) {
+        return;
+      }
+
+      const inputs = Array.from(state.midiAccess.inputs.values());
+      inputs.forEach((input) => {
+        input.onmidimessage = (event) => {
+          const now = new Date();
+          const time = now.toLocaleTimeString();
+          logMidi(`${time} ${input.name || "MIDI Input"}: ${formatMidiMessage(event.data)}`);
+        };
+      });
+
+      const count = inputs.length;
+      setMidiStatus(`Monitoring (${count} input${count === 1 ? "" : "s"})`, "online");
+    }
+
+    async function enableMidiMonitor() {
+      if (!navigator.requestMIDIAccess) {
+        elements.midiWarning.hidden = false;
+        setMidiStatus("Web MIDI unavailable", "error");
+        return;
+      }
+
+      setBusy(true);
+      try {
+        state.midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        state.midiEnabled = true;
+        elements.midiLog.textContent = "";
+
+        state.midiAccess.onstatechange = (event) => {
+          const port = event.port;
+          logMidi(`Port ${port.name || port.id} ${port.state} (${port.type})`);
+          bindMidiInputs();
+        };
+
+        bindMidiInputs();
+      } catch (error) {
+        setMidiStatus(error.message || "MIDI enable failed", "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function disableMidiMonitor() {
+      setBusy(true);
+      try {
+        if (state.midiAccess) {
+          state.midiAccess.inputs.forEach((input) => {
+            input.onmidimessage = null;
+          });
+          state.midiAccess.onstatechange = null;
+        }
+      } finally {
+        state.midiEnabled = false;
+        state.midiAccess = null;
+        elements.midiLog.textContent = "MIDI monitor disabled.";
+        setMidiStatus("Disconnected");
+        setBusy(false);
+      }
+    }
+
+    elements.connectButton.addEventListener("click", connectSerial);
+    elements.refreshButton.addEventListener("click", refreshSensors);
+    elements.disconnectButton.addEventListener("click", disconnectSerial);
+    elements.applyAllButton.addEventListener("click", applyAllChanges);
+    elements.enableMidiButton.addEventListener("click", enableMidiMonitor);
+    elements.disableMidiButton.addEventListener("click", disableMidiMonitor);
+
+    updateHeaderStats();
+
+    if (!navigator.serial) {
+      elements.supportWarning.hidden = false;
+    }
+
+    if (!navigator.requestMIDIAccess) {
+      elements.midiWarning.hidden = false;
+    }
+  </script>
+</body>
+</html>

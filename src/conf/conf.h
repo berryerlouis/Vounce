@@ -1,0 +1,9 @@
+#pragma once
+
+//#define VOUNCE_ENCODER_SENSOR
+//#define VOUNCE_POTENTIOMETER_SENSOR
+#define VOUNCE_ULTRASONIC_SENSOR
+
+#if !defined(VOUNCE_ENCODER_SENSOR) && !defined(VOUNCE_POTENTIOMETER_SENSOR) && !defined(VOUNCE_ULTRASONIC_SENSOR)
+#error "At least one sensor type must be defined in conf.h (VOUNCE_ENCODER_SENSOR, VOUNCE_POTENTIOMETER_SENSOR, or VOUNCE_ULTRASONIC_SENSOR)"
+#endif
